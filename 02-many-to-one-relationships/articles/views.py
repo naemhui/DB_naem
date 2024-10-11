@@ -1,11 +1,12 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_http_methods, require_POST, require_safe
 
 from .models import Article, Comment
 from .forms import ArticleForm, CommentForm
 
-
 # Create your views here.
+@require_safe
 def index(request):
     articles = Article.objects.all()
     context = {
@@ -13,7 +14,7 @@ def index(request):
     }
     return render(request, 'articles/index.html', context)
 
-
+@require_safe
 def detail(request, pk):
     article = Article.objects.get(pk=pk)
     comment_form = CommentForm()
@@ -29,11 +30,14 @@ def detail(request, pk):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def create(request):
     if request.method == 'POST':
         form = ArticleForm(request.POST)
         if form.is_valid():
-            article = form.save()
+            article = form.save(commit=False)
+            article.user = request.user
+            article.save()
             return redirect('articles:detail', article.pk)
     else:
         form = ArticleForm()
@@ -46,13 +50,16 @@ def create(request):
 @login_required
 def update(request, pk):
     article = Article.objects.get(pk=pk)
-    if request.method == 'POST':
-        form = ArticleForm(request.POST, instance=article)
-        if form.is_valid():
-            form.save()
-            return redirect('articles:detail', article.pk)
+    if request.user == article.user:
+        if request.method == 'POST':
+            form = ArticleForm(request.POST, instance=article)
+            if form.is_valid():
+                form.save()
+                return redirect('articles:detail', article.pk)
+        else:
+            form = ArticleForm(instance=article)
     else:
-        form = ArticleForm(instance=article)
+        return redirect('articles:detail', article.pk)
     context = {
         'article': article,
         'form': form,
@@ -63,7 +70,8 @@ def update(request, pk):
 @login_required
 def delete(request, pk):
     article = Article.objects.get(pk=pk)
-    article.delete()
+    if request.user == article.user:
+        article.delete()
     return redirect('articles:index')
 
 
@@ -77,6 +85,7 @@ def comments_create(request, pk):
     # 어떤 게시글에 작성되는지 게시글 조회
     article = Article.objects.get(pk=pk)
     comment_form = CommentForm(request.POST)
+    
     if comment_form.is_valid():
         # 외래 키 데이터 넣는 타이밍 필요
         # 외래 키 넣기 위한 2가지 조건
@@ -86,6 +95,7 @@ def comments_create(request, pk):
         # 그래서 django의 save 메서드는 인스턴스만 제공하고, 실제 저장은 잠시 대기하는 옵션을 제공함
         comment = comment_form.save(commit=False)  # 이렇게 해놓으면 save가 인스턴스만 반환(DB에 저장 요청X)
         comment.article = article
+        comment.user = request.user
         comment.save()
         return redirect('articles:detail', article.pk)  # 댓글이 detail 페이지에 이씀
     context = {
@@ -101,7 +111,7 @@ def comments_delete(request, article_pk, comment_pk):
     # article_pk = comment.article.pk
     # 방법2. detail에 article pk를 남기는 두 번째 방법
     article = Article.objects.get(pk=article_pk)
-
-    comment.delete()
+    if request.user == comment.user:
+        comment.delete()
     # return redirect('articles:detail', 삭제되는 댓글의 게시글 pk)
     return redirect('articles:detail', article.pk)
