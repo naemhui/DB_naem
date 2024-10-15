@@ -1,0 +1,16 @@
+[
+{
+    "model": "articles.article",
+    "pk": 1,
+    "fields": {
+        "user": 1,
+        "title": "제목임",
+        "content": "내용임",
+        "created_at": "2024-10-15T00:29:25.771Z",
+        "updated_at": "2024-10-15T00:29:25.771Z",
+        "like_users": [
+            1
+        ]
+    }
+}
+]

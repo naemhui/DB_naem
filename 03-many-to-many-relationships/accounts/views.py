@@ -83,3 +83,35 @@ def change_password(request, user_pk):
         'form': form,
     }
     return render(request, 'accounts/change_password.html', context)
+
+from django.contrib.auth import get_user_model
+
+def profile(request, username):
+    # 어떤 유저의 프로필을 보여줄 건지 유저를 조회(username을 사용해서 조회)
+    # 유저클래스.objects.get(username=username)
+    User = get_user_model()
+    person = User.objects.get(username=username)
+    context = {
+        'person' : person,
+    }
+    return render(request, 'accounts/profile.html', context)
+
+def follow(request, user_pk):
+    # 나는 me 너는 you
+    User = get_user_model()
+    # 팔로우 요청 보내는 사람
+    you = User.objects.get(pk=user_pk)
+    # 나 (팔로우 요청하는 사람)
+    me = request.user
+    
+    # 나와 팔로우 대상자가 같지 않을 경우에만 진행(다른 사람과만 팔로우 가능)
+    if me != you:
+        # you를 역참조한 결과..? 만약 내가 상대방의 팔로워 목록에 있다면 팔로우 취소
+        if me in you.followers.all():
+            you.followers.remove(me)
+            # me의 입장에서는 역참조 아니고 참조
+            # me.followings.remove(you)
+        else:
+            you.followers.add(me)
+            # me.followings.add(you) 라고 해도 위와 같다
+    return redirect('accounts:profile', you.username) # me.username하면 안됨 팔로우는 상대방 페이지에서 하니까
